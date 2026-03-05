@@ -1,0 +1,42 @@
+{
+  "log": {
+    "level": "info",
+    "timestamp": false
+  },
+  "dns": {
+    "servers": [
+      {
+        "tag": "cf",
+        "address": "1.0.0.1"
+      }
+    ]
+  },
+  "inbounds": [
+    {
+      "listen": "::",
+      "listen_port": 443,
+      "type": "vless",
+      "tag": "vless-in",
+      "users": [],
+      "tls": {
+        "enabled": true,
+        "server_name": "google.com",
+        "reality": {
+          "enabled": true,
+          "handshake": {
+            "server": "google.com",
+            "server_port": 443
+          },
+          "private_key": "${SING_BOX_PRIVATE_KEY}",
+          "short_id": ["${SING_BOX_SHORT_ID}"]
+        }
+      }
+    }
+  ],
+  "outbounds": [
+    {
+      "type": "direct",
+      "tag": "direct-out"
+    }
+  ]
+}
