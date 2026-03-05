@@ -1,9 +1,9 @@
-import { UserStatus } from "db/enums";
-import type TelegramBot from "node-telegram-bot-api";
 import { logger } from "#root/ioc.js";
 import type { IUserRepo } from "#root/ports/user.js";
+import { UserStatus } from "db/enums";
+import type TelegramBot from "node-telegram-bot-api";
 
-const InvationCmdOpCode = "invate_confirm";
+const InvationCmdOpCode = "invate-confirm";
 
 export class InvationCmd {
 	constructor(
@@ -16,7 +16,7 @@ export class InvationCmd {
 		if (opcode !== InvationCmdOpCode) {
 			throw Error("Wrong operation code");
 		}
-		if (!Object.values(UserStatus).includes(status)) {
+		if (!Object.values(UserStatus).includes(Number(status))) {
 			throw Error("Invalid user status");
 		}
 		const uid = Number(userId);
@@ -37,14 +37,15 @@ export class AdminService {
 		readonly adminId: string,
 	) {}
 
-	isAdminCallback(msg: TelegramBot.Message): InvationCmd | false {
-		if (msg.from?.id?.toString() !== this.adminId || !msg.text) {
+	isAdminCallback(msg: TelegramBot.CallbackQuery): InvationCmd | false {
+		if (msg.from?.id?.toString() !== this.adminId || !msg.data) {
 			return false;
 		}
 
 		try {
-			return InvationCmd.parse(msg.text);
+			return InvationCmd.parse(msg.data);
 		} catch (error) {
+			logger.error(error, "fail to parse admin command");
 			return false;
 		}
 	}

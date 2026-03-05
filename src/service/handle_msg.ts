@@ -1,8 +1,7 @@
-import { randomBytes } from "node:crypto";
+import type { IUserRepo, User } from "#root/ports/user.js";
 import { UserStatus } from "db/enums.js";
 import type TelegramBot from "node-telegram-bot-api";
-import type { IUserRepo, User } from "#root/ports/user.js";
-import { logger } from "#root/utils/log.js";
+import { randomBytes } from "node:crypto";
 import { type AdminService, InvationCmd } from "./admin.js";
 
 interface Config {
@@ -17,20 +16,18 @@ export class HandleMsgService {
 		private readonly conf: Config,
 	) {}
 
+	async handleCallback(msg: TelegramBot.CallbackQuery) {
+		if (msg.from?.is_bot) return;
+		const isAdminCmd = this.adminService.isAdminCallback(msg);
+		if (!isAdminCmd) return;
+
+		await this.adminService.handleAdminCallback(isAdminCmd);
+	}
+
 	async handleMsg(msg: TelegramBot.Message) {
 		if (msg.from?.is_bot) return;
 		const userId = msg.from?.id;
-		if (!userId) {
-			throw new Error("User ID is required");
-		}
-
-		const isAdminCmd = this.adminService.isAdminCallback(msg);
-		logger.debug({ msg, isAdminCmd }, "new msg");
-
-		if (isAdminCmd) {
-			await this.adminService.handleAdminCallback(isAdminCmd);
-			return;
-		}
+		if (!userId) throw new Error("User ID is required");
 
 		const user = await this.userRepo.select(userId);
 		if (!user) {
@@ -53,14 +50,14 @@ export class HandleMsgService {
 	}
 
 	async sendStatus(user: User) {
-		if (user.status === UserStatus.New) {
+		if (user.status == UserStatus.New) {
 			this.bot.sendMessage(
 				user.id,
 				`Администратор скоро рассмотрит вашу заявку`,
 			);
 			return;
 		}
-		if (user.status === UserStatus.Accepted) {
+		if (user.status == UserStatus.Accepted) {
 			const configURL = this.getConfigLink(user);
 			this.bot.sendMessage(
 				user.id,
@@ -68,7 +65,7 @@ export class HandleMsgService {
 			);
 			return;
 		}
-		if (user.status === UserStatus.Rejected) {
+		if (user.status == UserStatus.Rejected) {
 			this.bot.sendMessage(user.id, `Ваша заявка отклонена`);
 			return;
 		}

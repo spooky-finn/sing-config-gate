@@ -26,7 +26,13 @@ async function main() {
 	});
 
 	bot.on("message", (msg) => {
+		logger.debug(msg, "message");
 		handleMsgService.handleMsg(msg);
+	});
+
+	bot.on("callback_query", (msg) => {
+		logger.debug(msg, "callback_query");
+		handleMsgService.handleCallback(msg);
 	});
 }
 
