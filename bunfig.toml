@@ -1,0 +1,10 @@
+[install]
+# Use exact versions when saving dependencies
+exact = true
+
+# Auto-install peer dependencies
+autoinstall = true
+
+[test]
+# Test runner configuration
+preload = ["./src/utils/log.ts"]

@@ -1,13 +1,13 @@
 {
-  "[typescript]": {
-    "editor.formatOnSave": true,
-    "editor.defaultFormatter": "esbenp.prettier-vscode",
-    "editor.codeActionsOnSave": {
-      "source.organizeImports": "always"
-    }
-  },
-  "files.exclude": {
-    "**/node_modules": true,
-    "**/dist": true
-  }
+	"[typescript]": {
+		"editor.formatOnSave": true,
+		"editor.defaultFormatter": "esbenp.prettier-vscode",
+		"editor.codeActionsOnSave": {
+			"source.organizeImports": "always"
+		}
+	},
+	"files.exclude": {
+		"**/node_modules": true,
+		"**/dist": true
+	}
 }
