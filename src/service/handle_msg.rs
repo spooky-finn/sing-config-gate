@@ -10,7 +10,7 @@ use tracing::{error, info};
 use crate::{
     config::AppConfig,
     db::{enums::UserStatus, models::User},
-    ports::{user::UserRepoTrait, vless_identity::VlessIdentityRepoTrait},
+    ports::{user::UserRepoTrait, vless_identity::VlessIdentityRepoTrait, RepoError},
     service::admin::InvitationCmd,
 };
 
@@ -47,7 +47,8 @@ impl HandleMsgService {
         info!(user_id = user_id, "Handling callback");
 
         if let Some(cmd) = self.is_admin_invation_command(query) {
-            self.handle_admin_invation_command(&cmd).await?;
+            self.handle_admin_invation_command(&cmd, query.message.as_ref())
+                .await?;
         }
 
         // Acknowledge the callback query to remove the loading icon from the client
@@ -68,7 +69,6 @@ impl HandleMsgService {
         info!(user_id = user_id, "Handling message");
 
         let existing_user = self.user_repo.get(user_id)?;
-
         match existing_user {
             Some(user) => {
                 self.send_status_message(&user).await?;
@@ -92,6 +92,7 @@ impl HandleMsgService {
         self.user_repo.insert(&new_user)?;
         self.vless_identity_repo.assign(new_user.id)?;
         self.send_invation_request_to_admin(user).await?;
+        self.send_status_message(&new_user).await?;
 
         Ok(())
     }
@@ -107,7 +108,7 @@ impl HandleMsgService {
                     .await?;
             }
             UserStatus::Accepted => {
-                let config_url = self.get_config_link(user);
+                let config_url = self.get_config_link(user)?;
                 self.bot
                     .send_message(
                         chat_id,
@@ -125,9 +126,10 @@ impl HandleMsgService {
         Ok(())
     }
 
-    fn get_config_link(&self, user: &User) -> String {
+    fn get_config_link(&self, user: &User) -> Result<String, RepoError> {
         let base = self.config.client_config_endpoint.trim_end_matches('/');
-        format!("{}/{}", base, user.id)
+        let vless_identity = self.vless_identity_repo.get_by_user_id(user.id)?;
+        Ok(format!("{}/{}", base, vless_identity.uuid))
     }
 
     async fn send_invation_request_to_admin(
@@ -170,6 +172,7 @@ impl HandleMsgService {
     async fn handle_admin_invation_command(
         &self,
         cmd: &InvitationCmd,
+        message: Option<&teloxide::types::MaybeInaccessibleMessage>,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         self.user_repo.set_status(cmd.user_id, cmd.status)?;
         let user = self.user_repo.get(cmd.user_id)?;
@@ -183,6 +186,13 @@ impl HandleMsgService {
         }
 
         info!(user_id = cmd.user_id, status = ?cmd.status, "Admin callback handled");
+        // Remove the inline keyboard from the admin message
+        if let Some(msg) = message {
+            self.bot
+                .edit_message_reply_markup(ChatId(self.config.tg_admin_id), msg.id())
+                .await
+                .ok();
+        }
         Ok(())
     }
 }

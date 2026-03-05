@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{path::Path, time::Duration};
 
 use diesel::{
     r2d2::{ConnectionManager, Pool},
@@ -16,7 +16,7 @@ pub fn connect(db_location: &str) -> Result<DbPool, Box<dyn std::error::Error + 
 
     let manager = ConnectionManager::<SqliteConnection>::new(db_location);
     let pool = Pool::builder()
-        .max_size(1) // SQLite doesn't support multiple writers
+        .connection_timeout(Duration::from_secs(10))
         .build(manager)?;
 
     // Run migrations

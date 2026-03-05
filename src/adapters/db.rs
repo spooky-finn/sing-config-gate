@@ -156,12 +156,12 @@ impl VlessIdentityRepoTrait for VlessIdentityRepo {
         Ok(())
     }
 
-    fn get_by_user_id(&self, user_id: i64) -> Result<Vec<VlessIdentity>, RepoError> {
+    fn get_by_user_id(&self, user_id: i64) -> Result<VlessIdentity, RepoError> {
         let mut conn = self.conn()?;
 
         let results = vless_identity::table
             .filter(vless_identity::user_id.eq(&user_id))
-            .load::<VlessIdentity>(&mut conn)
+            .first::<VlessIdentity>(&mut conn)
             .map_err(|e| RepoError::Database(e.to_string()))?;
 
         Ok(results)
