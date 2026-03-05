@@ -6,11 +6,11 @@ use std::net::TcpStream;
 use std::path::Path;
 use tracing::{error, info};
 use utils::env::DeployConfig;
-use utils::log::init_logger;
+use utils::logger;
 
 fn main() {
     let config = DeployConfig::from_env().expect("Failed to load deployment configuration");
-    init_logger("info", false);
+    logger::init("info", false);
     info!("Starting deployment to {}", config.deploy_host);
 
     match run_deployment(&config) {

@@ -47,7 +47,7 @@ pub struct AppConfig {
 }
 
 impl AppConfig {
-    pub fn load_env() -> Self {
+    pub fn load() -> Self {
         AppConfig::from_env().expect("Failed to load environment configuration")
     }
 

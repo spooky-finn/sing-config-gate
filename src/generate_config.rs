@@ -11,7 +11,7 @@ use diesel::prelude::*;
 use ports::user::IUserRepo;
 use serde::{Deserialize, Serialize};
 use tracing::{error, info};
-use utils::{env::AppConfig, log::init_logger};
+use utils::{env::AppConfig, logger};
 
 use crate::db::models::VpnUuid;
 
@@ -85,11 +85,10 @@ struct SingBoxConfig {
 
 #[tokio::main]
 async fn main() {
-    let config = AppConfig::load_env();
-    init_logger(&config.log_level, config.log_disable_timestamp);
+    let config = AppConfig::load();
+    logger::init(&config.log_level, config.log_disable_timestamp);
     info!("Generating sing-box server config");
 
-    // Initialize database
     let pool = init_db(&config.db_location).expect("Failed to initialize database");
     let user_repo = UserRepo::new(pool);
 

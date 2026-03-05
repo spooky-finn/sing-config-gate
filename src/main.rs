@@ -10,12 +10,12 @@ use adapters::db::{init_db, UserRepo};
 use service::{admin::AdminService, handle_msg::HandleMsgService};
 use teloxide::{prelude::*, types::Message};
 use tracing::{error, info};
-use utils::{env::AppConfig, log::init_logger};
+use utils::{env::AppConfig, logger};
 
 #[tokio::main]
 async fn main() {
-    let config = AppConfig::load_env();
-    init_logger(&config.log_level, config.log_disable_timestamp);
+    let config = AppConfig::load();
+    logger::init(&config.log_level, config.log_disable_timestamp);
     info!("Starting bot");
 
     std::panic::set_hook(Box::new(|panic_info| {
