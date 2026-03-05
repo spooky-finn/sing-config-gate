@@ -3,31 +3,33 @@ import type { IUserRepo } from "#root/ports/user.js";
 import { UserStatus } from "db/enums";
 import type TelegramBot from "node-telegram-bot-api";
 
-const InvationCmdOpCode = "invate-confirm";
-
 export class InvationCmd {
+	private static opCode = "invate-confirm";
 	constructor(
 		readonly userId: number,
 		readonly status: UserStatus,
-	) {}
+	) { }
 
 	static parse(text: string) {
-		const [opcode, userId, status] = text.split("_");
-		if (opcode !== InvationCmdOpCode) {
-			throw Error("Wrong operation code");
+		const data = JSON.parse(text);
+		if (data.opcode !== InvationCmd.opCode) {
+			throw Error(`InvationCmd: Wrong operation code: received ${data.opcode}`);
 		}
-		if (!Object.values(UserStatus).includes(Number(status))) {
+		if (!Object.values(UserStatus).includes(data.status)) {
 			throw Error("Invalid user status");
 		}
-		const uid = Number(userId);
-		if (Number.isNaN(uid)) {
-			throw Error("User id is NaN");
+		if (typeof data.userId !== "number" || Number.isNaN(data.userId)) {
+			throw Error("Invalid user id");
 		}
-		return new InvationCmd(uid, status as any);
+		return new InvationCmd(data.userId, data.status);
 	}
 
 	toString() {
-		return `${InvationCmdOpCode}_${this.userId}_${this.status}`;
+		return JSON.stringify({
+			opcode: InvationCmd.opCode,
+			userId: this.userId,
+			status: this.status,
+		});
 	}
 }
 
@@ -35,7 +37,7 @@ export class AdminService {
 	constructor(
 		private readonly userRepo: IUserRepo,
 		readonly adminId: string,
-	) {}
+	) { }
 
 	isAdminCallback(msg: TelegramBot.CallbackQuery): InvationCmd | false {
 		if (msg.from?.id?.toString() !== this.adminId || !msg.data) {
@@ -51,7 +53,7 @@ export class AdminService {
 	}
 
 	async handleAdminCallback(cmd: InvationCmd) {
-		await this.userRepo.updateStatus(cmd.userId, cmd.status);
+		await this.userRepo.setStatus(cmd.userId, cmd.status);
 		logger.info(cmd, "adming callback handled");
 	}
 }

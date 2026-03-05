@@ -1,8 +1,8 @@
-import type { UserStatus } from "db/enums";
 import type { DataStore, IUserRepo, User } from "#root/ports/user.js";
+import type { UserStatus } from "db/enums";
 
 export class UserRepo implements IUserRepo {
-	constructor(private readonly db: DataStore) {}
+	constructor(private readonly db: DataStore) { }
 
 	async select(id: number): Promise<User | null> {
 		const user = await this.db
@@ -20,7 +20,7 @@ export class UserRepo implements IUserRepo {
 		await this.db.insertInto("user").values(user).execute();
 	}
 
-	async getUsersByStatus(status: UserStatus): Promise<User[]> {
+	async getByStatus(status: UserStatus): Promise<User[]> {
 		return this.db
 			.selectFrom("user")
 			.where("status", "=", status)
@@ -28,7 +28,7 @@ export class UserRepo implements IUserRepo {
 			.execute();
 	}
 
-	async updateStatus(id: number, status: UserStatus): Promise<void> {
+	async setStatus(id: number, status: UserStatus): Promise<void> {
 		await this.db
 			.updateTable("user")
 			.set({ status })

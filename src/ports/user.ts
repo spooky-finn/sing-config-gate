@@ -14,6 +14,6 @@ export interface User {
 export interface IUserRepo {
 	select(userId: number): Promise<User | null>;
 	insert(user: User): Promise<void>;
-	getUsersByStatus(status: UserStatus): Promise<User[]>;
-	updateStatus(userId: number, status: UserStatus): Promise<void>;
+	getByStatus(status: UserStatus): Promise<User[]>;
+	setStatus(userId: number, status: UserStatus): Promise<void>;
 }
