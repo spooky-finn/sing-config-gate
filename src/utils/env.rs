@@ -5,6 +5,7 @@ pub enum EnvError {
     #[error("Missing required environment variable: {0}")]
     Missing(String),
     #[error("Invalid environment variable {0}: {1}")]
+    #[allow(dead_code)]
     Invalid(String, String),
 }
 
@@ -16,9 +17,13 @@ pub struct AppConfig {
     pub db_location: String,
     pub log_level: String,
     pub log_disable_timestamp: bool,
+    #[allow(dead_code)]
     pub sing_box_private_key: String,
+    #[allow(dead_code)]
     pub sing_box_short_id: String,
+    #[allow(dead_code)]
     pub sing_box_server_name: String,
+    #[allow(dead_code)]
     pub sing_box_server_port: u16,
 }
 

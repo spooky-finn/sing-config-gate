@@ -12,7 +12,7 @@ use crate::{
     ports::user::{IUserRepo, UserRepoError},
 };
 
-pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("../db/migrations");
+pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("src/db/migrations");
 
 pub type DbPool = Pool<ConnectionManager<SqliteConnection>>;
 

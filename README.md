@@ -1,6 +1,6 @@
 # Sing-Box Config Bot (Rust)
 
-A Telegram bot for managing sing-box VPN configurations. This is a Rust rewrite of the original TypeScript/Node.js implementation.
+A Telegram bot for managing sing-box VPN configurations
 
 ## Features
 
