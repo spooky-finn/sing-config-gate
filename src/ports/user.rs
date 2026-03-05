@@ -13,6 +13,7 @@ pub enum UserRepoError {
 
 #[allow(dead_code)]
 pub trait IUserRepo: Send + Sync {
+    fn get(&self, id: i64) -> Result<User, UserRepoError>;
     fn select(&self, id: i64) -> Result<Option<User>, UserRepoError>;
     fn insert(&self, user: &User) -> Result<(), UserRepoError>;
     fn get_by_status(&self, status: UserStatus) -> Result<Vec<User>, UserRepoError>;

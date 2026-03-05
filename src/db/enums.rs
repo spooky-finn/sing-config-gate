@@ -23,12 +23,7 @@ impl<'de> Deserialize<'de> for UserStatus {
         D: serde::Deserializer<'de>,
     {
         let value = i32::deserialize(deserializer)?;
-        match value {
-            0 => Ok(UserStatus::New),
-            1 => Ok(UserStatus::Accepted),
-            2 => Ok(UserStatus::Rejected),
-            _ => Err(serde::de::Error::custom("Invalid UserStatus value")),
-        }
+        Ok(UserStatus::from(value))
     }
 }
 
@@ -44,11 +39,21 @@ impl UserStatus {
 
 impl From<UserStatus> for i32 {
     fn from(value: UserStatus) -> Self {
-        let status_code = match value {
+        match value {
             UserStatus::New => 0,
             UserStatus::Accepted => 1,
             UserStatus::Rejected => 2,
-        };
-        status_code
+        }
+    }
+}
+
+impl From<i32> for UserStatus {
+    fn from(value: i32) -> Self {
+        match value {
+            0 => UserStatus::New,
+            1 => UserStatus::Accepted,
+            2 => UserStatus::Rejected,
+            _ => panic!("Invalid UserStatus value: {}", value),
+        }
     }
 }

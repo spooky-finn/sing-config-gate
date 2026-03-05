@@ -1,5 +1,6 @@
 // generate sing box proxy config
 mod adapters;
+mod config;
 mod db;
 mod ports;
 mod utils;
@@ -7,11 +8,12 @@ mod utils;
 use std::fs;
 
 use adapters::db::{init_db, UserRepo};
+use config::AppConfig;
 use diesel::prelude::*;
 use ports::user::IUserRepo;
 use serde::{Deserialize, Serialize};
 use tracing::{error, info};
-use utils::{env::AppConfig, logger};
+use utils::logger;
 
 use crate::db::models::VpnUuid;
 

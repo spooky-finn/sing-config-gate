@@ -1,11 +1,11 @@
+mod config;
 mod utils;
 
+use std::{io::prelude::*, net::TcpStream, path::Path};
+
+use config::DeployConfig;
 use ssh2::Session;
-use std::io::prelude::*;
-use std::net::TcpStream;
-use std::path::Path;
 use tracing::{error, info};
-use utils::env::DeployConfig;
 use utils::logger;
 
 fn main() {

@@ -1,49 +1,47 @@
-use std::sync::Arc;
+use std::{error::Error, sync::Arc};
 
 use teloxide::{
     prelude::*,
     types::{ChatId, InlineKeyboardButton, InlineKeyboardMarkup, Message, User as TgUser},
     Bot,
 };
-use tracing::info;
+use tracing::{error, info};
 
 use crate::{
+    config::AppConfig,
     db::{enums::UserStatus, models::User},
     ports::user::IUserRepo,
-    service::admin::{AdminService, InvitationCmd},
+    service::admin::InvitationCmd,
 };
 
 pub struct HandleMsgService {
     user_repo: Arc<dyn IUserRepo>,
-    admin_service: AdminService,
-    client_config_endpoint: String,
+    config: AppConfig,
+    bot: Bot,
 }
 
 impl HandleMsgService {
-    pub fn new(
-        user_repo: Arc<dyn IUserRepo>,
-        admin_service: AdminService,
-        client_config_endpoint: String,
-    ) -> Self {
+    pub fn new(user_repo: Arc<dyn IUserRepo>, config: AppConfig) -> Self {
         Self {
+            bot: Bot::from_env(),
             user_repo,
-            admin_service,
-            client_config_endpoint,
+            config,
         }
     }
 
     pub async fn handle_callback(
         &self,
         query: &CallbackQuery,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let user_id = query.from.id.0 as i64;
-        info!(user_id = user_id, "Handling callback");
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
         if query.from.is_bot {
             return Ok(());
         }
 
-        if let Some(cmd) = self.admin_service.is_admin_callback(query) {
-            self.admin_service.handle_admin_callback(&cmd).await?;
+        let user_id = query.from.id.0 as i64;
+        info!(user_id = user_id, "Handling callback");
+
+        if let Some(cmd) = self.is_admin_invation_command(query) {
+            self.handle_invation_command(&cmd).await?;
         }
 
         // Acknowledge the callback query to remove the loading icon from the client
@@ -53,10 +51,7 @@ impl HandleMsgService {
         Ok(())
     }
 
-    pub async fn handle_msg(
-        &self,
-        msg: &Message,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn handle_msg(&self, msg: &Message) -> Result<(), Box<dyn Error + Send + Sync>> {
         let from = msg.from.as_ref();
         if from.is_none() || from.unwrap().is_bot {
             return Ok(());
@@ -80,10 +75,7 @@ impl HandleMsgService {
         Ok(())
     }
 
-    async fn register(
-        &self,
-        user: &TgUser,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    async fn register(&self, user: &TgUser) -> Result<(), Box<dyn Error + Send + Sync>> {
         let new_user = User {
             id: user.id.0 as i64,
             username: user.username.clone().unwrap_or_default(),
@@ -101,30 +93,33 @@ impl HandleMsgService {
         &self,
         user_id: i64,
         user: &User,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let bot = Bot::from_env();
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let chat_id = ChatId(user_id);
 
         let status = user.status_enum();
 
         match status {
             UserStatus::New => {
-                bot.send_message(chat_id, "Администратор скоро рассмотрит вашу заявку")
+                self.bot
+                    .send_message(chat_id, "Администратор скоро рассмотрит вашу заявку")
                     .await?;
             }
             UserStatus::Accepted => {
                 let config_url = self.get_config_link(user);
-                bot.send_message(
-                    chat_id,
-                    format!(
-                        "Вам одобрен доступ. Ваш файл конфигурации доступен по ссылке: {}",
-                        config_url
-                    ),
-                )
-                .await?;
+                self.bot
+                    .send_message(
+                        chat_id,
+                        format!(
+                            "Вам одобрен доступ. Ваш файл конфигурации доступен по ссылке: {}",
+                            config_url
+                        ),
+                    )
+                    .await?;
             }
             UserStatus::Rejected => {
-                bot.send_message(chat_id, "Ваша заявка отклонена").await?;
+                self.bot
+                    .send_message(chat_id, "Ваша заявка отклонена")
+                    .await?;
             }
         }
 
@@ -132,7 +127,7 @@ impl HandleMsgService {
     }
 
     fn get_config_link(&self, user: &User) -> String {
-        let base = self.client_config_endpoint.trim_end_matches('/');
+        let base = self.config.client_config_endpoint.trim_end_matches('/');
         format!("{}/{}", base, user.id)
     }
 
@@ -140,7 +135,7 @@ impl HandleMsgService {
         &self,
         user: &TgUser,
         message: &str,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let bot = Bot::from_env();
         let msg = format!(
             "Новая заявка от {}: {}",
@@ -158,10 +153,36 @@ impl HandleMsgService {
             InlineKeyboardButton::callback("Reject", reject_cmd.to_callback_data()?),
         ]]);
 
-        bot.send_message(ChatId(self.admin_service.admin_id), msg)
+        bot.send_message(ChatId(self.config.tg_admin_id), msg)
             .reply_markup(keyboard)
             .await?;
 
+        Ok(())
+    }
+
+    pub fn is_admin_invation_command(&self, msg: &CallbackQuery) -> Option<InvitationCmd> {
+        if msg.from.id.0 as i64 != self.config.tg_admin_id {
+            return None;
+        }
+
+        InvitationCmd::parse(msg.data.as_ref()?)
+            .inspect_err(|e| error!(error = %e, "Failed to parse admin command"))
+            .ok()
+    }
+
+    pub async fn handle_invation_command(
+        &self,
+        cmd: &InvitationCmd,
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        self.user_repo.set_status(cmd.user_id, cmd.status)?;
+
+        match cmd.status {
+            UserStatus::Accepted => todo!(),
+            UserStatus::Rejected => todo!(),
+            UserStatus::New => {}
+        }
+
+        info!(user_id = cmd.user_id, status = ?cmd.status, "Admin callback handled");
         Ok(())
     }
 }

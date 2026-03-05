@@ -92,6 +92,16 @@ impl IUserRepo for UserRepo {
 
         Ok(())
     }
+
+    fn get(&self, id: i64) -> Result<User, UserRepoError> {
+        use crate::db::schema::user::dsl as user_dsl;
+        let mut conn = self.get_connection()?;
+
+        user_dsl::user
+            .find(&id)
+            .first::<User>(&mut conn)
+            .map_err(|e| UserRepoError::Database(e.to_string()))
+    }
 }
 
 pub fn init_db(db_location: &str) -> Result<DbPool, Box<dyn std::error::Error + Send + Sync>> {

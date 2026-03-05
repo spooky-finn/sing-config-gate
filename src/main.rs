@@ -1,16 +1,18 @@
 mod adapters;
+mod config;
 mod db;
 mod ports;
 mod service;
 mod utils;
 
-use std::sync::Arc;
+use std::{error::Error, sync::Arc};
 
 use adapters::db::{init_db, UserRepo};
-use service::{admin::AdminService, handle_msg::HandleMsgService};
+use config::AppConfig;
+use service::handle_msg::HandleMsgService;
 use teloxide::{prelude::*, types::Message};
 use tracing::{error, info};
-use utils::{env::AppConfig, logger};
+use utils::logger;
 
 #[tokio::main]
 async fn main() {
@@ -25,12 +27,7 @@ async fn main() {
     let pool = init_db(&config.db_location).expect("Failed to initialize database");
     let user_repo = Arc::new(UserRepo::new(pool));
 
-    let admin_service = AdminService::new(user_repo.clone(), config.tg_admin_id);
-    let handle_msg_service = Arc::new(HandleMsgService::new(
-        user_repo,
-        admin_service,
-        config.client_config_endpoint,
-    ));
+    let handle_msg_service = Arc::new(HandleMsgService::new(user_repo, config.clone()));
 
     let bot = Bot::new(config.tg_bot_token);
 
@@ -46,7 +43,7 @@ async fn main() {
                     if let Err(e) = service.handle_msg(&msg).await {
                         error!(error = %e, "Error handling message");
                     }
-                    Ok::<(), Box<dyn std::error::Error + Send + Sync>>(())
+                    Ok::<(), Box<dyn Error + Send + Sync>>(())
                 }
             }
         }))
@@ -55,13 +52,10 @@ async fn main() {
             move |query: teloxide::types::CallbackQuery| {
                 let service = service.clone();
                 async move {
-                    if query.from.is_bot {
-                        return Ok(());
-                    }
                     if let Err(e) = service.handle_callback(&query).await {
                         error!(error = %e, "Error handling callback");
                     }
-                    Ok::<(), Box<dyn std::error::Error + Send + Sync>>(())
+                    Ok::<(), Box<dyn Error + Send + Sync>>(())
                 }
             }
         }));
