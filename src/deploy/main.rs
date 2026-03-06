@@ -16,7 +16,7 @@ type Error = Box<dyn std::error::Error>;
 
 impl DeployConfig {
     fn load() -> Result<Self, Error> {
-        if let Err(e) = dotenvy::from_filename("src/bin/deploy/.env.deploy") {
+        if let Err(e) = dotenvy::from_filename("src/deploy/.env.deploy") {
             panic!("fail to load env .env.deploy: {}", e);
         }
 
