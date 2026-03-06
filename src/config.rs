@@ -58,7 +58,15 @@ impl AppConfig {
     /// Panics if required environment variables are missing or invalid.
     pub fn load() -> Self {
         init_env();
-        Self::from_env().expect("Failed to load environment configuration")
+        match Self::from_env() {
+            Ok(config) => config,
+            Err(e) => {
+                eprintln!("ERROR: {}", e);
+                eprintln!("Required environment variables: TELOXIDE_TOKEN, TG_ADMIN_ID, CLIENT_CONFIG_ENDPOINT");
+                eprintln!("Set them via docker --env-file or -e flags");
+                std::process::exit(1);
+            }
+        }
     }
 
     fn from_env() -> Result<Self, EnvError> {
