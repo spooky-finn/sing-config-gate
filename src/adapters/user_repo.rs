@@ -1,19 +1,11 @@
-use diesel::{
-    prelude::*,
-    r2d2::{ConnectionManager, Pool},
-    sqlite::SqliteConnection,
-};
+use diesel::{prelude::*, sqlite::SqliteConnection};
 
 use crate::{
-    db::{
-        enums::UserStatus,
-        models::User,
-        schema::user,
-    },
+    db::{enums::UserStatus, models::User, schema::user, ConnPool},
     ports::{user::UserRepoTrait, RepoError},
 };
 
-pub type ConnPool = Pool<ConnectionManager<SqliteConnection>>;
+type DbConn = diesel::r2d2::PooledConnection<diesel::r2d2::ConnectionManager<SqliteConnection>>;
 
 pub struct UserRepo {
     pool: ConnPool,
@@ -24,10 +16,7 @@ impl UserRepo {
         Self { pool }
     }
 
-    fn conn(
-        &self,
-    ) -> Result<diesel::r2d2::PooledConnection<ConnectionManager<SqliteConnection>>, RepoError>
-    {
+    fn conn(&self) -> Result<DbConn, RepoError> {
         self.pool
             .get()
             .map_err(|e| RepoError::Database(e.to_string()))

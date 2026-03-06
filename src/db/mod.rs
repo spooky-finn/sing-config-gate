@@ -5,3 +5,4 @@ pub mod schema;
 
 pub use connect::*;
 pub use schema::{user, vless_identity};
+pub use DbPool as ConnPool;

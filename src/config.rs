@@ -1,35 +1,37 @@
-use thiserror::Error;
+//! Application configuration management.
+//!
+//! This module handles loading and validating environment variables
+//! required for the application to run.
 
-#[derive(Error, Debug)]
-pub enum EnvError {
-    #[error("Missing required environment variable: {0}")]
-    Missing(String),
-    #[error("Invalid environment variable {0}: {1}")]
-    Invalid(String, String),
-}
+pub use crate::errors::EnvError;
 
+/// Loads an environment variable, returning an error if not set.
 pub fn get_env(name: &str) -> Result<String, EnvError> {
     dotenvy::dotenv().ok();
     std::env::var(name).map_err(|_| EnvError::Missing(name.to_string()))
 }
 
+/// Loads an environment variable or returns a default value.
 pub fn get_env_or(name: &str, default: &str) -> String {
     dotenvy::dotenv().ok();
     std::env::var(name).unwrap_or_else(|_| default.to_string())
 }
 
+/// Parses an environment variable into a specific type.
 fn parse_env<T: std::str::FromStr>(name: &str) -> Result<T, EnvError> {
     let val = get_env(name)?;
     val.parse::<T>()
         .map_err(|_| EnvError::Invalid(name.to_string(), val))
 }
 
+/// Parses an environment variable or returns a default value.
 fn parse_env_or<T: std::str::FromStr>(name: &str, default: &str) -> T {
     let val = std::env::var(name).unwrap_or_else(|_| default.to_string());
     val.parse::<T>()
         .unwrap_or_else(|_| panic!("Invalid default value for {}", name))
 }
 
+/// Application configuration loaded from environment variables.
 #[derive(Debug, Clone)]
 pub struct AppConfig {
     pub tg_bot_token: String,
@@ -45,10 +47,15 @@ pub struct AppConfig {
 }
 
 impl AppConfig {
+    /// Loads configuration from environment variables.
+    ///
+    /// # Panics
+    /// Panics if required environment variables are missing or invalid.
     pub fn load() -> Self {
-        AppConfig::from_env().expect("Failed to load environment configuration")
+        Self::from_env().expect("Failed to load environment configuration")
     }
 
+    /// Creates configuration from environment variables.
     fn from_env() -> Result<Self, EnvError> {
         Ok(Self {
             tg_bot_token: get_env("TELOXIDE_TOKEN")?,

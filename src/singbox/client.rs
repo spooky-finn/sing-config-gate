@@ -1,6 +1,9 @@
+//! Sing-box client configuration types.
+
 use serde::{Deserialize, Serialize};
 
 use crate::singbox::shared::{DnsConfig, LogConfig};
+use crate::singbox::builders::ClientTls;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TunInboundPlatformHttpProxy {
@@ -38,28 +41,6 @@ pub struct MixedInbound {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Utls {
-    pub enabled: bool,
-    pub fingerprint: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Reality {
-    pub enabled: bool,
-    pub public_key: String,
-    pub short_id: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Tls {
-    pub enabled: bool,
-    pub insecure: bool,
-    pub server_name: String,
-    pub utls: Utls,
-    pub reality: Reality,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
 pub struct VlessOutbound {
     #[serde(rename = "type")]
     pub r#type: String,
@@ -68,7 +49,7 @@ pub struct VlessOutbound {
     pub server_port: u16,
     pub uuid: String,
     pub flow: String,
-    pub tls: Tls,
+    pub tls: ClientTls,
     pub packet_encoding: String,
 }
 

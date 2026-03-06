@@ -1,10 +1,10 @@
 use crate::{
     config::AppConfig,
     singbox::{
+        builders::{ClientReality, ClientTls, Utls},
         client::{
-            ClientConfig, DirectOutbound, Inbound, LogicalRule, MixedInbound, Outbound, Reality,
-            RouteConfig, RouteRule, Tls, TunInbound, TunInboundPlatformHttpProxy, Utls,
-            VlessOutbound,
+            ClientConfig, DirectOutbound, Inbound, LogicalRule, MixedInbound, Outbound,
+            RouteConfig, RouteRule, TunInbound, TunInboundPlatformHttpProxy, VlessOutbound,
         },
         shared::{DnsConfig, DnsRule, DnsServer, LogConfig},
     },
@@ -106,20 +106,14 @@ pub fn generate_config(
         server_port: 443,
         uuid: uuid.to_string(),
         flow: "xtls-rprx-vision".to_string(),
-        tls: Tls {
-            enabled: true,
-            insecure: true,
-            server_name: app_config.sing_box_server_name.clone(),
-            utls: Utls {
-                enabled: true,
-                fingerprint: "chrome".to_string(),
-            },
-            reality: Reality {
-                enabled: true,
-                public_key: app_config.sing_box_private_key.clone(),
-                short_id: app_config.sing_box_short_id.clone(),
-            },
-        },
+        tls: ClientTls::builder(app_config.sing_box_server_name.clone())
+            .insecure(true)
+            .utls(Utls::chrome())
+            .reality(ClientReality::new(
+                &app_config.sing_box_private_key,
+                &app_config.sing_box_short_id,
+            ))
+            .build(),
         packet_encoding: "xudp".to_string(),
     };
 

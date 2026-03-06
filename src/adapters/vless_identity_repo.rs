@@ -1,15 +1,11 @@
-use diesel::{
-    prelude::*,
-    r2d2::{ConnectionManager, Pool},
-    sqlite::SqliteConnection,
-};
+use diesel::{prelude::*, sqlite::SqliteConnection};
 
 use crate::{
-    db::{models::VlessIdentity, schema::vless_identity},
+    db::{models::VlessIdentity, schema::vless_identity, ConnPool},
     ports::{vless_identity::VlessIdentityRepoTrait, RepoError},
 };
 
-pub type ConnPool = Pool<ConnectionManager<SqliteConnection>>;
+type DbConn = diesel::r2d2::PooledConnection<diesel::r2d2::ConnectionManager<SqliteConnection>>;
 
 pub struct VlessIdentityRepo {
     pool: ConnPool,
@@ -20,16 +16,13 @@ impl VlessIdentityRepo {
         Self { pool }
     }
 
-    fn conn(
-        &self,
-    ) -> Result<diesel::r2d2::PooledConnection<ConnectionManager<SqliteConnection>>, RepoError>
-    {
+    fn conn(&self) -> Result<DbConn, RepoError> {
         self.pool
             .get()
             .map_err(|e| RepoError::Database(e.to_string()))
     }
 
-    fn insert_batch(&self, count: usize, conn: &mut SqliteConnection) -> Result<(), RepoError> {
+    fn insert_batch(&self, count: usize, conn: &mut DbConn) -> Result<(), RepoError> {
         let identities: Vec<VlessIdentity> = (0..count)
             .map(|_| VlessIdentity {
                 uuid: uuid::Uuid::new_v4().to_string(),

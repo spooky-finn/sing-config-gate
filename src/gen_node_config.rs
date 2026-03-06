@@ -5,8 +5,11 @@ use sing_box_config_bot::{
     config::AppConfig,
     connect,
     ports::vless_identity::VlessIdentityRepoTrait,
-    singbox::server::{Inbound, Outbound, Reality, RealityHandshake, ServerConfig, Tls, VlessUser},
-    singbox::shared::{DnsConfig, DnsServer, LogConfig},
+    singbox::{
+        builders::{ServerReality, ServerTls},
+        server::{Inbound, Outbound, ServerConfig, VlessUser},
+        shared::{DnsConfig, DnsServer, LogConfig},
+    },
     utils::logger,
 };
 use std::fs;
@@ -36,6 +39,13 @@ async fn main() {
         .collect();
 
     // Build the config
+    let reality = ServerReality::new(
+        &config.sing_box_private_key,
+        &config.sing_box_short_id,
+        &config.sing_box_server_name,
+        443,
+    );
+
     let sing_box_config = ServerConfig {
         log: LogConfig {
             level: "info".to_string(),
@@ -58,19 +68,7 @@ async fn main() {
             r#type: "vless".to_string(),
             tag: "vless-in".to_string(),
             users,
-            tls: Tls {
-                enabled: true,
-                server_name: config.sing_box_server_name.clone(),
-                reality: Reality {
-                    enabled: true,
-                    handshake: RealityHandshake {
-                        server: config.sing_box_server_name,
-                        server_port: 443,
-                    },
-                    private_key: config.sing_box_private_key,
-                    short_id: vec![config.sing_box_short_id],
-                },
-            },
+            tls: ServerTls::new(&config.sing_box_server_name, reality),
         }],
         outbounds: vec![Outbound {
             r#type: "direct".to_string(),

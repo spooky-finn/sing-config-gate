@@ -48,7 +48,10 @@ async fn main() {
     let routing_config =
         RoutingConfig::load("config/domains.json").expect("Failed to load routing config");
 
+    let bot = Bot::new(config.tg_bot_token.clone());
+
     let handle_msg_service = Arc::new(HandleMsgService::new(
+        bot.clone(),
         user_repo.clone(),
         vless_identity_repo.clone(),
         config.clone(),
@@ -58,8 +61,6 @@ async fn main() {
         app_config: config.clone(),
         routing_config,
     });
-
-    let bot = Bot::new(config.tg_bot_token);
 
     // Build HTTP server for config delivery
     let http_app = Router::new()

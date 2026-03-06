@@ -1,11 +1,15 @@
+//! Shared sing-box configuration types.
+
 use serde::{Deserialize, Serialize};
 
+/// Log configuration for sing-box.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct LogConfig {
     pub level: String,
     pub timestamp: bool,
 }
 
+/// DNS server configuration.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DnsServer {
     pub tag: String,
@@ -18,6 +22,7 @@ pub struct DnsServer {
     pub detour: Option<String>,
 }
 
+/// DNS rule configuration.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DnsRule {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -28,6 +33,7 @@ pub struct DnsRule {
     pub server: Option<String>,
 }
 
+/// DNS configuration.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DnsConfig {
     pub servers: Vec<DnsServer>,

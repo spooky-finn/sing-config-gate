@@ -1,3 +1,8 @@
+//! Deployment utility for deploying sing-box configuration to remote servers.
+//!
+//! This binary connects to multiple servers via SSH in parallel and executes
+//! a deployment command on each one.
+
 use std::{
     io::prelude::*,
     net::TcpStream,
@@ -5,14 +10,15 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use sing_box_config_bot::{
-    config::{self, get_env},
-    utils::logger,
-};
+use serde::{Deserialize, Serialize};
 use ssh2::Session;
 use tracing::{error, info};
 
-use serde::{Deserialize, Serialize};
+use sing_box_config_bot::{
+    config::get_env,
+    errors::DeployError,
+    utils::logger,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServerNode {
@@ -23,10 +29,12 @@ pub struct ServerNode {
 }
 
 impl ServerNode {
+    /// Returns the SSH address in the format `host:port`.
     pub fn ssh_address(&self) -> String {
         format!("{}:{}", self.host, self.port)
     }
 
+    /// Returns the SSH address with username in the format `user@host`.
     pub fn ssh_user_address(&self) -> String {
         format!("{}@{}", self.user, self.host)
     }
@@ -42,37 +50,35 @@ pub struct DeployConfig {
 }
 
 impl DeployConfig {
-    pub fn from_env() -> Result<Self, config::EnvError> {
+    pub fn from_env() -> Result<Self, DeployError> {
         Ok(Self {
-            keyfile: get_env("DEPLOY_KEYFILE")?,
-            deploy_user: get_env("DEPLOY_USER")?,
-            deploy_command: get_env("DEPLOY_COMMAND")?,
-            deploy_cwd: get_env("DEPLOY_CWD")?,
+            keyfile: get_env("DEPLOY_KEYFILE").map_err(|e| DeployError::Ssh(e.to_string()))?,
+            deploy_user: get_env("DEPLOY_USER").map_err(|e| DeployError::Ssh(e.to_string()))?,
+            deploy_command: get_env("DEPLOY_COMMAND")
+                .map_err(|e| DeployError::Ssh(e.to_string()))?,
+            deploy_cwd: get_env("DEPLOY_CWD").map_err(|e| DeployError::Ssh(e.to_string()))?,
             servers: Self::load_servers()?,
         })
     }
 
-    fn load_servers() -> Result<Vec<ServerNode>, config::EnvError> {
+    fn load_servers() -> Result<Vec<ServerNode>, DeployError> {
         // Load servers from DEPLOY_SERVERS environment variable
         // Format: "name1:user1:host1:port1,name2:user2:host2:port2,..."
-        let servers_str = get_env("DEPLOY_SERVERS")?;
+        let servers_str = get_env("DEPLOY_SERVERS").map_err(|e| DeployError::Ssh(e.to_string()))?;
 
-        let servers: Result<Vec<ServerNode>, _> = servers_str
+        let servers: Result<Vec<ServerNode>, DeployError> = servers_str
             .split(',')
             .map(|s| {
                 let parts: Vec<&str> = s.split(':').collect();
                 if parts.len() != 4 {
-                    return Err(config::EnvError::Invalid(
-                        "DEPLOY_SERVERS".to_string(),
-                        format!("Expected name:user:host:port, got: {}", s),
-                    ));
+                    return Err(DeployError::Ssh(format!(
+                        "Expected name:user:host:port, got: {}",
+                        s
+                    )));
                 }
 
                 let port = parts[3].parse::<u16>().map_err(|_| {
-                    config::EnvError::Invalid(
-                        "DEPLOY_SERVERS".to_string(),
-                        format!("Invalid port: {}", parts[3]),
-                    )
+                    DeployError::Ssh(format!("Invalid port: {}", parts[3]))
                 })?;
 
                 Ok(ServerNode {
@@ -123,7 +129,7 @@ fn main() {
                         error = %e,
                         "Deployment failed"
                     );
-                    eprintln!("Deployment to {} failed: {}", server.name, e);
+                    eprintln!("\n=== {} ===\nDeployment failed: {}", server.name, e);
                 }
             }
         });
@@ -154,7 +160,7 @@ fn main() {
 fn run_deployment(
     config: &DeployConfig,
     server: &ServerNode,
-) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+) -> Result<String, DeployError> {
     let stream = TcpStream::connect(server.ssh_address())?;
     let mut session = Session::new()?;
     session.set_tcp_stream(stream);
@@ -176,7 +182,7 @@ fn run_deployment(
 
     let exit_status = channel.exit_status()?;
     if exit_status != 0 {
-        return Err(format!("Command exited with status {}: {}", exit_status, output).into());
+        return Err(DeployError::CommandFailed(exit_status, output));
     }
 
     Ok(output)

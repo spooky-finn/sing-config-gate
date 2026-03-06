@@ -2,7 +2,7 @@ use std::{error::Error, sync::Arc};
 
 use teloxide::{
     prelude::*,
-    types::{ChatId, InlineKeyboardButton, InlineKeyboardMarkup, Message, User as TgUser},
+    types::{ChatId, Message, User as TgUser},
     Bot,
 };
 use tracing::{error, info};
@@ -10,25 +10,28 @@ use tracing::{error, info};
 use crate::{
     config::AppConfig,
     db::{enums::UserStatus, models::User},
-    ports::{user::UserRepoTrait, vless_identity::VlessIdentityRepoTrait, RepoError},
+    errors::RepoError,
+    ports::{user::UserRepoTrait, vless_identity::VlessIdentityRepoTrait},
     service::admin::InvitationCmd,
+    utils::telegram,
 };
 
 pub struct HandleMsgService {
+    bot: Bot,
     user_repo: Arc<dyn UserRepoTrait>,
     vless_identity_repo: Arc<dyn VlessIdentityRepoTrait>,
     config: AppConfig,
-    bot: Bot,
 }
 
 impl HandleMsgService {
     pub fn new(
+        bot: Bot,
         user_repo: Arc<dyn UserRepoTrait>,
         vless_identity_repo: Arc<dyn VlessIdentityRepoTrait>,
         config: AppConfig,
     ) -> Self {
         Self {
-            bot: Bot::from_env(),
+            bot,
             vless_identity_repo,
             user_repo,
             config,
@@ -44,17 +47,15 @@ impl HandleMsgService {
         }
 
         let user_id = query.from.id.0 as i64;
-        info!(user_id = user_id, "Handling callback");
+        info!(user_id, "Handling callback");
 
         if let Some(cmd) = self.is_admin_invation_command(query) {
             self.handle_admin_invation_command(&cmd, query.message.as_ref())
                 .await?;
         }
 
-        // Acknowledge the callback query to remove the loading icon from the client
-        teloxide::Bot::from_env()
-            .answer_callback_query(query.id.clone())
-            .await?;
+        // Acknowledge the callback query
+        self.bot.answer_callback_query(query.id.clone()).await?;
         Ok(())
     }
 
@@ -66,7 +67,7 @@ impl HandleMsgService {
 
         let from = from.unwrap();
         let user_id = from.id.0 as i64;
-        info!(user_id = user_id, "Handling message");
+        info!(user_id, "Handling message");
 
         let existing_user = self.user_repo.get(user_id)?;
         match existing_user {
@@ -90,7 +91,6 @@ impl HandleMsgService {
         };
 
         self.user_repo.insert(&new_user)?;
-        self.vless_identity_repo.assign(new_user.id)?;
         self.send_invation_request_to_admin(user).await?;
         self.send_status_message(&new_user).await?;
 
@@ -136,7 +136,6 @@ impl HandleMsgService {
         &self,
         user: &TgUser,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let bot = Bot::from_env();
         let msg = format!(
             "Новая заявка от {}",
             user.username
@@ -147,12 +146,13 @@ impl HandleMsgService {
         let accept_cmd = InvitationCmd::new(user.id.0 as i64, UserStatus::Accepted);
         let reject_cmd = InvitationCmd::new(user.id.0 as i64, UserStatus::Rejected);
 
-        let keyboard = InlineKeyboardMarkup::new(vec![vec![
-            InlineKeyboardButton::callback("Accept", accept_cmd.to_callback_data()?),
-            InlineKeyboardButton::callback("Reject", reject_cmd.to_callback_data()?),
-        ]]);
+        let keyboard = telegram::inline_keyboard_row(vec![
+            ("Accept", &accept_cmd.to_callback_data()?),
+            ("Reject", &reject_cmd.to_callback_data()?),
+        ]);
 
-        bot.send_message(ChatId(self.config.tg_admin_id), msg)
+        self.bot
+            .send_message(ChatId(self.config.tg_admin_id), msg)
             .reply_markup(keyboard)
             .await?;
 
@@ -175,6 +175,11 @@ impl HandleMsgService {
         message: Option<&teloxide::types::MaybeInaccessibleMessage>,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         self.user_repo.set_status(cmd.user_id, cmd.status)?;
+        // Assign VLESS identity only when admin accepts
+        if cmd.status == UserStatus::Accepted {
+            self.vless_identity_repo.assign(cmd.user_id)?;
+        }
+
         let user = self.user_repo.get(cmd.user_id)?;
         match user {
             Some(user) => {
