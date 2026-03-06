@@ -2,9 +2,6 @@ use std::{
     env,
     process::{Command, Stdio},
 };
-use tracing::{error, info};
-
-use sing_box_config_bot::utils::logger;
 
 #[derive(Debug)]
 struct DeployConfig {
@@ -15,9 +12,14 @@ struct DeployConfig {
     host_port: u16,
 }
 
+type Error = Box<dyn std::error::Error>;
+
 impl DeployConfig {
-    fn load() -> Result<Self, Box<dyn std::error::Error>> {
-        dotenvy::from_filename("src/bin/deploy/.env.deploy").ok();
+    fn load() -> Result<Self, Error> {
+        if let Err(e) = dotenvy::from_filename("src/bin/deploy/.env.deploy") {
+            panic!("fail to load env .env.deploy: {}", e);
+        }
+
         Ok(Self {
             ssh_alias: env::var("DEPLOY_SSH_ALIAS")?,
             deploy_path: env::var("DEPLOY_PATH")?,
@@ -32,23 +34,22 @@ impl DeployConfig {
 }
 
 fn main() {
-    logger::init("info", true);
     let config = DeployConfig::load().unwrap();
     if let Err(e) = deploy(&config) {
-        error!("Deployment failed: {}", e);
+        eprintln!("Deployment failed: {}", e);
         std::process::exit(1);
     }
-    info!("Deployment completed successfully!");
+    println!("Deployment completed successfully!");
 }
 
-fn deploy(config: &DeployConfig) -> Result<(), Box<dyn std::error::Error>> {
-    checkout_code_on_server(config)?;
-    build_image_on_server(config)?;
-    deploy_container_on_server(config)?;
+fn deploy(config: &DeployConfig) -> Result<(), Error> {
+    fetch(config)?;
+    build_image(config)?;
+    start_container(config)?;
     Ok(())
 }
 
-fn checkout_code_on_server(config: &DeployConfig) -> Result<(), Box<dyn std::error::Error>> {
+fn fetch(config: &DeployConfig) -> Result<(), Error> {
     let remote_cmd = format!(
         "cd {deploy_path} && git pull",
         deploy_path = config.deploy_path,
@@ -67,7 +68,7 @@ fn checkout_code_on_server(config: &DeployConfig) -> Result<(), Box<dyn std::err
     Ok(())
 }
 
-fn build_image_on_server(config: &DeployConfig) -> Result<(), Box<dyn std::error::Error>> {
+fn build_image(config: &DeployConfig) -> Result<(), Error> {
     let remote_cmd = format!(
         "cd {deploy_path} && \
          docker build -t {docker_image} .",
@@ -88,12 +89,11 @@ fn build_image_on_server(config: &DeployConfig) -> Result<(), Box<dyn std::error
     Ok(())
 }
 
-fn deploy_container_on_server(config: &DeployConfig) -> Result<(), Box<dyn std::error::Error>> {
+fn start_container(config: &DeployConfig) -> Result<(), Error> {
     let remote_cmd = format!(
         "cd {deploy_path} && \
          docker stop {service_name} 2>/dev/null || true && \
          docker rm {service_name} 2>/dev/null || true && \
-         docker rmi {docker_image} 2>/dev/null || true && \
          docker run -d \
            --name {service_name} \
            --restart unless-stopped \
@@ -117,7 +117,5 @@ fn deploy_container_on_server(config: &DeployConfig) -> Result<(), Box<dyn std::
     if !status.success() {
         return Err("failed to deploy to remote server".into());
     }
-
-    info!("Container deployed successfully!");
     Ok(())
 }
