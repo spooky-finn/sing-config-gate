@@ -166,6 +166,16 @@ impl VlessIdentityRepoTrait for VlessIdentityRepo {
 
         Ok(results)
     }
+
+    fn get_all(&self) -> Result<Vec<VlessIdentity>, RepoError> {
+        let mut conn = self.conn()?;
+
+        let result = vless_identity::table
+            .load::<VlessIdentity>(&mut conn)
+            .map_err(|e| RepoError::Database(e.to_string()))?;
+
+        Ok(result)
+    }
 }
 
 impl VlessIdentityRepo {
