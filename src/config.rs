@@ -28,14 +28,6 @@ fn parse_env<T: std::str::FromStr>(name: &str) -> Result<T, EnvError> {
         .map_err(|_| EnvError::Invalid(name.to_string(), val))
 }
 
-/// Parses an environment variable or returns a default value.
-fn parse_env_or<T: std::str::FromStr>(name: &str, default: &str) -> Result<T, EnvError> {
-    std::env::var(name)
-        .unwrap_or_else(|_| default.to_string())
-        .parse::<T>()
-        .map_err(|_| EnvError::Invalid(name.to_string(), default.to_string()))
-}
-
 /// Application configuration loaded from environment variables.
 #[derive(Debug, Clone)]
 pub struct AppConfig {
@@ -48,7 +40,6 @@ pub struct AppConfig {
     pub sing_box_private_key: Option<String>,
     pub sing_box_short_id: Option<String>,
     pub sing_box_server_name: String,
-    pub sing_box_server_port: u16,
 }
 
 impl AppConfig {
@@ -80,7 +71,6 @@ impl AppConfig {
             sing_box_private_key: get_env("SING_BOX_PRIVATE_KEY").ok(),
             sing_box_short_id: get_env("SING_BOX_SHORT_ID").ok(),
             sing_box_server_name: get_env_or("SING_BOX_SERVER_NAME", "google.com"),
-            sing_box_server_port: parse_env_or("SING_BOX_SERVER_PORT", "443")?,
         })
     }
 }

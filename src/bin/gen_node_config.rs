@@ -28,9 +28,11 @@ async fn main() {
     info!("Generating sing-box server config");
 
     // Validate required sing-box configuration for node config generation
-    let private_key = config.sing_box_private_key
+    let private_key = config
+        .sing_box_private_key
         .expect("SING_BOX_PRIVATE_KEY is required for node config generation");
-    let short_id = config.sing_box_short_id
+    let short_id = config
+        .sing_box_short_id
         .expect("SING_BOX_SHORT_ID is required for node config generation");
 
     let pool = connect(&config.db_location).expect("Failed to initialize database");
@@ -45,12 +47,7 @@ async fn main() {
         .collect();
 
     // Build the config
-    let reality = ServerReality::new(
-        &private_key,
-        &short_id,
-        &config.sing_box_server_name,
-        443,
-    );
+    let reality = ServerReality::new(&private_key, &short_id, &config.sing_box_server_name, 443);
 
     let sing_box_config = ServerConfig {
         log: LogConfig {
@@ -70,7 +67,7 @@ async fn main() {
         },
         inbounds: vec![Inbound {
             listen: "::".to_string(),
-            listen_port: config.sing_box_server_port,
+            listen_port: 443,
             r#type: "vless".to_string(),
             tag: "vless-in".to_string(),
             users,

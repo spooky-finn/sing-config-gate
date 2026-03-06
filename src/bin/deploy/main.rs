@@ -11,7 +11,8 @@ struct DeployConfig {
     ssh_alias: String,
     deploy_path: String,
     service_name: String,
-    sudo_password: Option<String>,
+    docker_image: String,
+    host_port: u16,
 }
 
 impl DeployConfig {
@@ -20,8 +21,12 @@ impl DeployConfig {
         Ok(Self {
             ssh_alias: env::var("DEPLOY_SSH_ALIAS")?,
             deploy_path: env::var("DEPLOY_PATH")?,
-            service_name: env::var("SERVICE_NAME").unwrap_or_else(|_| "sing-box".to_string()),
-            sudo_password: env::var("DEPLOY_SUDO_PASSWORD").ok(),
+            service_name: env::var("SERVICE_NAME")
+                .unwrap_or_else(|_| "sing-box-orchestrator".to_string()),
+            docker_image: env::var("DOCKER_IMAGE")?,
+            host_port: env::var("HOST_PORT")
+                .unwrap_or_else(|_| "8081".to_string())
+                .parse()?,
         })
     }
 }
@@ -29,10 +34,6 @@ impl DeployConfig {
 fn main() {
     logger::init("info", true);
     let config = DeployConfig::load().unwrap();
-    info!(
-        "Starting deployment. Target: {} -> {}",
-        config.ssh_alias, config.deploy_path
-    );
     if let Err(e) = deploy(&config) {
         error!("Deployment failed: {}", e);
         std::process::exit(1);
@@ -41,43 +42,16 @@ fn main() {
 }
 
 fn deploy(config: &DeployConfig) -> Result<(), Box<dyn std::error::Error>> {
-    info!("Pulling latest changes from git...");
-    git_pull(config)?;
-
-    info!("Building project on server...");
-    build(config)?;
-
-    info!("Restarting service...");
-    restart_service(config)?;
-
+    checkout_code_on_server(config)?;
+    build_image_on_server(config)?;
+    deploy_container_on_server(config)?;
     Ok(())
 }
 
-fn git_pull(config: &DeployConfig) -> Result<(), Box<dyn std::error::Error>> {
-    let status = Command::new("ssh")
-        .arg(&config.ssh_alias)
-        .arg(format!(
-            "cd {} && git fetch && git reset --hard origin/main",
-            config.deploy_path
-        ))
-        .stdout(Stdio::inherit())
-        .stderr(Stdio::inherit())
-        .status()?;
-
-    if !status.success() {
-        return Err("failed to pull latest changes".into());
-    }
-    Ok(())
-}
-
-fn build(config: &DeployConfig) -> Result<(), Box<dyn std::error::Error>> {
+fn checkout_code_on_server(config: &DeployConfig) -> Result<(), Box<dyn std::error::Error>> {
     let remote_cmd = format!(
-        "cd {} && \
-         source $HOME/.profile || true && \
-         source $HOME/.bashrc || true && \
-         rustup update && \
-         cargo build --release --bin bot",
-        config.deploy_path
+        "cd {deploy_path} && git pull",
+        deploy_path = config.deploy_path,
     );
 
     let status = Command::new("ssh")
@@ -87,26 +61,19 @@ fn build(config: &DeployConfig) -> Result<(), Box<dyn std::error::Error>> {
         .stderr(Stdio::inherit())
         .status()?;
 
-    if status.success() {
-        Ok(())
-    } else {
-        Err("build failed on server".into())
+    if !status.success() {
+        return Err("failed to checkout code on remote server".into());
     }
+    Ok(())
 }
 
-fn restart_service(config: &DeployConfig) -> Result<(), Box<dyn std::error::Error>> {
-    let remote_cmd = if let Some(pass) = &config.sudo_password {
-        format!(
-            "echo '{}' | sudo -S systemctl restart {} && \
-             echo '{}' | sudo -S systemctl status {} --no-pager",
-            pass, config.service_name, pass, config.service_name
-        )
-    } else {
-        format!(
-            "sudo systemctl restart {} && sudo systemctl status {} --no-pager",
-            config.service_name, config.service_name
-        )
-    };
+fn build_image_on_server(config: &DeployConfig) -> Result<(), Box<dyn std::error::Error>> {
+    let remote_cmd = format!(
+        "cd {deploy_path} && \
+         docker build -t {docker_image} .",
+        deploy_path = config.deploy_path,
+        docker_image = config.docker_image,
+    );
 
     let status = Command::new("ssh")
         .arg(&config.ssh_alias)
@@ -115,9 +82,42 @@ fn restart_service(config: &DeployConfig) -> Result<(), Box<dyn std::error::Erro
         .stderr(Stdio::inherit())
         .status()?;
 
-    if status.success() {
-        Ok(())
-    } else {
-        Err("failed to restart service".into())
+    if !status.success() {
+        return Err("failed to build Docker image on remote server".into());
     }
+    Ok(())
+}
+
+fn deploy_container_on_server(config: &DeployConfig) -> Result<(), Box<dyn std::error::Error>> {
+    let remote_cmd = format!(
+        "cd {deploy_path} && \
+         docker stop {service_name} 2>/dev/null || true && \
+         docker rm {service_name} 2>/dev/null || true && \
+         docker rmi {docker_image} 2>/dev/null || true && \
+         docker run -d \
+           --name {service_name} \
+           --restart unless-stopped \
+           --env-file .env \
+           -p {host_port}:8080 \
+           -v ~/apps/vpn/data:/app/data \
+           {docker_image}",
+        deploy_path = config.deploy_path,
+        service_name = config.service_name,
+        docker_image = config.docker_image,
+        host_port = config.host_port,
+    );
+
+    let status = Command::new("ssh")
+        .arg(&config.ssh_alias)
+        .arg(remote_cmd)
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
+        .status()?;
+
+    if !status.success() {
+        return Err("failed to deploy to remote server".into());
+    }
+
+    info!("Container deployed successfully!");
+    Ok(())
 }

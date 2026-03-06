@@ -69,7 +69,7 @@ async fn main() {
         .layer(TraceLayer::new_for_http())
         .with_state(app_state);
 
-    let server_addr = format!("0.0.0.0:{}", config.sing_box_server_port);
+    let server_addr = format!("0.0.0.0:8080");
     let listener = tokio::net::TcpListener::bind(&server_addr)
         .await
         .expect("Failed to bind address");
