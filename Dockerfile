@@ -11,10 +11,10 @@ RUN apt-get update && apt-get install -y \
 COPY Cargo.toml Cargo.lock ./
 
 # Create dummy sources for all binaries
-RUN mkdir -p src/bin/deploy src/bin/gen_node_config src/adapters src/db src/domain src/ports src/service src/singbox src/utils && \
+RUN mkdir -p src/deploy src/gen_node_config src/adapters src/db src/domain src/ports src/service src/singbox src/utils && \
     echo "fn main() {}" > src/main.rs && \
-    echo "fn main() {}" > src/bin/deploy/main.rs && \
-    echo "fn main() {}" > src/bin/gen_node_config.rs && \
+    echo "fn main() {}" > src/deploy/main.rs && \
+    echo "fn main() {}" > src/gen_node_config.rs && \
     echo "pub mod adapters; pub mod config; pub mod db; pub mod domain; pub mod errors; pub mod ports; pub mod service; pub mod singbox; pub mod utils;" > src/lib.rs && \
     echo "" > src/adapters/mod.rs && \
     echo "" > src/config.rs && \
