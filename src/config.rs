@@ -11,12 +11,10 @@ fn init_env() {
     dotenvy::dotenv().ok();
 }
 
-/// Loads an environment variable, returning an error if not set.
 pub fn get_env(name: &str) -> Result<String, EnvError> {
     std::env::var(name).map_err(|_| EnvError::Missing(name.to_string()))
 }
 
-/// Loads an environment variable or returns a default value.
 pub fn get_env_or(name: &str, default: &str) -> String {
     std::env::var(name).unwrap_or_else(|_| default.to_string())
 }

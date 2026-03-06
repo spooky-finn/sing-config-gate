@@ -20,7 +20,7 @@ RUN cargo chef cook --release --recipe-path recipe.json
 
 # 2. Build your actual code (deps layer above is reused)
 COPY . .
-RUN cargo build --release --locked
+RUN cargo build --release
 
 # ── Runtime stage ─────────────────────────────────────────────────────────────
 FROM debian:bookworm-slim
