@@ -5,15 +5,19 @@
 
 pub use crate::errors::EnvError;
 
+/// Initializes the environment from .env file.
+/// Should be called once at application startup.
+fn init_env() {
+    dotenvy::dotenv().ok();
+}
+
 /// Loads an environment variable, returning an error if not set.
 pub fn get_env(name: &str) -> Result<String, EnvError> {
-    dotenvy::dotenv().ok();
     std::env::var(name).map_err(|_| EnvError::Missing(name.to_string()))
 }
 
 /// Loads an environment variable or returns a default value.
 pub fn get_env_or(name: &str, default: &str) -> String {
-    dotenvy::dotenv().ok();
     std::env::var(name).unwrap_or_else(|_| default.to_string())
 }
 
@@ -25,10 +29,11 @@ fn parse_env<T: std::str::FromStr>(name: &str) -> Result<T, EnvError> {
 }
 
 /// Parses an environment variable or returns a default value.
-fn parse_env_or<T: std::str::FromStr>(name: &str, default: &str) -> T {
-    let val = std::env::var(name).unwrap_or_else(|_| default.to_string());
-    val.parse::<T>()
-        .unwrap_or_else(|_| panic!("Invalid default value for {}", name))
+fn parse_env_or<T: std::str::FromStr>(name: &str, default: &str) -> Result<T, EnvError> {
+    std::env::var(name)
+        .unwrap_or_else(|_| default.to_string())
+        .parse::<T>()
+        .map_err(|_| EnvError::Invalid(name.to_string(), default.to_string()))
 }
 
 /// Application configuration loaded from environment variables.
@@ -40,8 +45,8 @@ pub struct AppConfig {
     pub db_location: String,
     pub log_level: String,
     pub log_disable_timestamp: bool,
-    pub sing_box_private_key: String,
-    pub sing_box_short_id: String,
+    pub sing_box_private_key: Option<String>,
+    pub sing_box_short_id: Option<String>,
     pub sing_box_server_name: String,
     pub sing_box_server_port: u16,
 }
@@ -52,10 +57,10 @@ impl AppConfig {
     /// # Panics
     /// Panics if required environment variables are missing or invalid.
     pub fn load() -> Self {
+        init_env();
         Self::from_env().expect("Failed to load environment configuration")
     }
 
-    /// Creates configuration from environment variables.
     fn from_env() -> Result<Self, EnvError> {
         Ok(Self {
             tg_bot_token: get_env("TELOXIDE_TOKEN")?,
@@ -64,10 +69,10 @@ impl AppConfig {
             db_location: get_env_or("DB_LOCATION", "./src/db/vpn_signaling_server.db"),
             log_level: get_env_or("LOG_LEVEL", "info"),
             log_disable_timestamp: get_env_or("LOG_DISABLE_TIMESTAMP", "false") == "true",
-            sing_box_private_key: get_env("SING_BOX_PRIVATE_KEY")?,
-            sing_box_short_id: get_env("SING_BOX_SHORT_ID")?,
+            sing_box_private_key: get_env("SING_BOX_PRIVATE_KEY").ok(),
+            sing_box_short_id: get_env("SING_BOX_SHORT_ID").ok(),
             sing_box_server_name: get_env_or("SING_BOX_SERVER_NAME", "google.com"),
-            sing_box_server_port: parse_env_or("SING_BOX_SERVER_PORT", "443"),
+            sing_box_server_port: parse_env_or("SING_BOX_SERVER_PORT", "443")?,
         })
     }
 }

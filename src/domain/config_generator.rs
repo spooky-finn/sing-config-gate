@@ -99,6 +99,17 @@ pub fn generate_config(
 
     let inbounds = vec![Inbound::Tun(tun_inbound), Inbound::Mixed(mixed_inbound)];
 
+    let reality = ClientReality::new(
+        app_config
+            .sing_box_private_key
+            .as_ref()
+            .expect("SING_BOX_PRIVATE_KEY is required for client config generation"),
+        app_config
+            .sing_box_short_id
+            .as_ref()
+            .expect("SING_BOX_SHORT_ID is required for client config generation"),
+    );
+
     let vless_outbound = VlessOutbound {
         r#type: "vless".to_string(),
         tag: "vless-out".to_string(),
@@ -109,10 +120,7 @@ pub fn generate_config(
         tls: ClientTls::builder(app_config.sing_box_server_name.clone())
             .insecure(true)
             .utls(Utls::chrome())
-            .reality(ClientReality::new(
-                &app_config.sing_box_private_key,
-                &app_config.sing_box_short_id,
-            ))
+            .reality(reality)
             .build(),
         packet_encoding: "xudp".to_string(),
     };

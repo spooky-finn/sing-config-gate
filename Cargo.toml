@@ -59,9 +59,16 @@ name = "bot"
 path = "src/main.rs"
 
 [[bin]]
-name = "deploy"
-path = "src/deploy.rs"
+name = "gen_node_config"
+path = "src/bin/gen_node_config.rs"
 
 [[bin]]
-name = "gen_node_config"
-path = "src/gen_node_config.rs"
+name = "deploy"
+path = "src/bin/deploy/main.rs"
+
+# Release optimizations for smaller, faster binaries
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

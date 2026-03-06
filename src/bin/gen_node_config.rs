@@ -27,6 +27,12 @@ async fn main() {
     logger::init(&config.log_level, config.log_disable_timestamp);
     info!("Generating sing-box server config");
 
+    // Validate required sing-box configuration for node config generation
+    let private_key = config.sing_box_private_key
+        .expect("SING_BOX_PRIVATE_KEY is required for node config generation");
+    let short_id = config.sing_box_short_id
+        .expect("SING_BOX_SHORT_ID is required for node config generation");
+
     let pool = connect(&config.db_location).expect("Failed to initialize database");
     let vless_identity_repo = VlessIdentityRepo::new(pool.clone());
     let identities = vless_identity_repo.get_all().unwrap();
@@ -40,8 +46,8 @@ async fn main() {
 
     // Build the config
     let reality = ServerReality::new(
-        &config.sing_box_private_key,
-        &config.sing_box_short_id,
+        &private_key,
+        &short_id,
         &config.sing_box_server_name,
         443,
     );
