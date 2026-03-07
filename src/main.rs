@@ -13,7 +13,6 @@ use sing_box_config_bot::{
     ports::vless_identity::VlessIdentityRepoTrait,
     service::handle_msg::HandleMsgService,
     utils::logger,
-    RepoError,
 };
 use std::sync::Arc;
 use teloxide::{macros::BotCommands, prelude::*, types::Message};
