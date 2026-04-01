@@ -33,3 +33,4 @@ config/sing-box.client.json
 *.log
 .env.deploy
 *.service
+config/

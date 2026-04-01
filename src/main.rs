@@ -17,6 +17,7 @@ struct AppState {
 #[tokio::main]
 async fn main() {
     dotenvy::dotenv().expect("Failed to load .env file");
+    let port = std::env::var("PORT").unwrap_or("3001".to_string());
     let state = Arc::new(AppState {
         password: std::env::var("PASSWORD").expect("PASSWORD must be set in .env file"),
         config_dir: std::path::Path::new("./config")
@@ -33,7 +34,7 @@ async fn main() {
         .layer(TraceLayer::new_for_http())
         .with_state(state);
 
-    let addr = "127.0.0.1:3000";
+    let addr = format!("127.0.0.1:{}", port);
     println!("Starting file server on {}", addr);
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();
