@@ -1,7 +1,7 @@
 # Cross-compile for Linux Ubuntu from macOS
 TARGET = x86_64-unknown-linux-musl
 RELEASE_DIR = target/$(TARGET)/release
-BINARY_NAME = sing-box-config-bot
+BINARY_NAME = sing-box-config-gate
 
 .PHONY: all build clean install-toolchain
 

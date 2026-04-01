@@ -435,7 +435,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "sing-box-config-bot"
+name = "sing-box-config-gate"
 version = "0.1.0"
 dependencies = [
  "axum",
