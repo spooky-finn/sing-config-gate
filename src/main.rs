@@ -52,7 +52,7 @@ async fn serve_file(
         return (StatusCode::NOT_FOUND, Html(state.index_html.clone())).into_response();
     }
 
-    let file_path = std::path::Path::new(&state.config_dir).join(&filename);
+    let file_path = std::path::Path::new(&state.config_dir).join(&filename.trim());
 
     let canonical_path = match file_path.canonicalize() {
         Ok(p) => p,
